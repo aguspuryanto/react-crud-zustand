@@ -1,0 +1,273 @@
+
+# Tutorial CRUD dengan React, Zustand, Redux, dan Context API
+
+## 1. Persiapan Proyek
+
+1. **Inisialisasi Proyek React**:
+   ```bash
+   npx create-react-app react-crud
+   cd react-crud
+   ```
+
+2. **Instalasi Dependensi**:
+   - Redux Toolkit:
+     ```bash
+     npm install @reduxjs/toolkit react-redux
+     ```
+   - Zustand:
+     ```bash
+     npm install zustand
+     ```
+
+---
+
+## 2. Struktur Proyek
+Buat struktur direktori berikut:
+```
+src/
+|-- components/
+|   |-- BookForm.js
+|   |-- BookList.js
+|-- store/
+|   |-- zustandStore.js
+|   |-- reduxStore.js
+|-- App.js
+|-- index.js
+```
+
+touch src/components/BookForm.js
+touch src/components/BookList.js
+touch src/store/zustandStore.js
+touch src/store/reduxStore.js
+---
+
+## 3. CRUD Menggunakan Zustand
+
+### Store dengan Zustand
+Buat file `zustandStore.js` di folder `store`:
+```javascript
+import create from 'zustand';
+
+export const useBookStore = create((set) => ({
+  books: [],
+  addBook: (book) => set((state) => ({ books: [...state.books, book] })),
+  updateBook: (updatedBook) =>
+    set((state) => ({
+      books: state.books.map((book) =>
+        book.id === updatedBook.id ? updatedBook : book
+      ),
+    })),
+  deleteBook: (id) =>
+    set((state) => ({ books: state.books.filter((book) => book.id !== id) })),
+}));
+```
+
+---
+
+### Komponen CRUD
+#### 1. BookForm.js
+```javascript
+import React, { useState } from 'react';
+import { useBookStore } from '../store/zustandStore';
+
+const BookForm = () => {
+  const { addBook } = useBookStore();
+  const [title, setTitle] = useState('');
+  const [author, setAuthor] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    addBook({ id: Date.now(), title, author });
+    setTitle('');
+    setAuthor('');
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input
+        type="text"
+        placeholder="Book Title"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        required
+      />
+      <input
+        type="text"
+        placeholder="Author"
+        value={author}
+        onChange={(e) => setAuthor(e.target.value)}
+        required
+      />
+      <button type="submit">Add Book</button>
+    </form>
+  );
+};
+
+export default BookForm;
+```
+
+---
+
+#### 2. BookList.js
+```javascript
+import React from 'react';
+import { useBookStore } from '../store/zustandStore';
+
+const BookList = () => {
+  const { books, deleteBook } = useBookStore();
+
+  return (
+    <ul>
+      {books.map((book) => (
+        <li key={book.id}>
+          {book.title} by {book.author}
+          <button onClick={() => deleteBook(book.id)}>Delete</button>
+        </li>
+      ))}
+    </ul>
+  );
+};
+
+export default BookList;
+```
+
+---
+
+#### 3. App.js
+Gabungkan `BookForm` dan `BookList`:
+```javascript
+import React from 'react';
+import BookForm from './components/BookForm';
+import BookList from './components/BookList';
+
+const App = () => (
+  <div>
+    <h1>Book Manager (Zustand)</h1>
+    <BookForm />
+    <BookList />
+  </div>
+);
+
+export default App;
+```
+
+---
+
+## 4. CRUD Menggunakan Redux
+
+### Store dengan Redux Toolkit
+Buat file `reduxStore.js` di folder `store`:
+```javascript
+import { configureStore, createSlice } from '@reduxjs/toolkit';
+
+const bookSlice = createSlice({
+  name: 'books',
+  initialState: [],
+  reducers: {
+    addBook: (state, action) => {
+      state.push(action.payload);
+    },
+    updateBook: (state, action) => {
+      const index = state.findIndex((book) => book.id === action.payload.id);
+      if (index !== -1) {
+        state[index] = action.payload;
+      }
+    },
+    deleteBook: (state, action) => {
+      return state.filter((book) => book.id !== action.payload);
+    },
+  },
+});
+
+export const { addBook, updateBook, deleteBook } = bookSlice.actions;
+
+export const store = configureStore({
+  reducer: {
+    books: bookSlice.reducer,
+  },
+});
+```
+
+---
+
+### Komponen Redux
+Sesuaikan `BookForm` dan `BookList` untuk menggunakan `reduxStore`. Gunakan `useDispatch` dan `useSelector` dari `react-redux`.
+
+Tambahkan **Provider** di `index.js`:
+```javascript
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { Provider } from 'react-redux';
+import { store } from './store/reduxStore';
+import App from './App';
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <Provider store={store}>
+    <App />
+  </Provider>
+);
+```
+
+---
+
+## 5. CRUD Menggunakan Context API
+
+### Store dengan Context API
+Buat file `BookContext.js` di folder `store`:
+```javascript
+import React, { createContext, useContext, useReducer } from 'react';
+
+const BookContext = createContext();
+
+const bookReducer = (state, action) => {
+  switch (action.type) {
+    case 'ADD_BOOK':
+      return [...state, action.payload];
+    case 'UPDATE_BOOK':
+      return state.map((book) =>
+        book.id === action.payload.id ? action.payload : book
+      );
+    case 'DELETE_BOOK':
+      return state.filter((book) => book.id !== action.payload);
+    default:
+      return state;
+  }
+};
+
+export const BookProvider = ({ children }) => {
+  const [books, dispatch] = useReducer(bookReducer, []);
+
+  return (
+    <BookContext.Provider value={{ books, dispatch }}>
+      {children}
+    </BookContext.Provider>
+  );
+};
+
+export const useBooks = () => useContext(BookContext);
+```
+
+---
+
+### Integrasi Komponen
+Gunakan `useBooks` untuk mengakses state dan `dispatch`.
+
+Tambahkan **BookProvider** di `index.js`:
+```javascript
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BookProvider } from './store/BookContext';
+import App from './App';
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <BookProvider>
+    <App />
+  </BookProvider>
+);
+```
+
+---
+
+Dengan metode ini, Anda bisa memilih manajemen state yang sesuai dengan kebutuhan proyek Anda. Jika Anda ingin penjelasan lebih rinci pada salah satu metode, beri tahu saya! 😊
